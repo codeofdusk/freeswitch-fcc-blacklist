@@ -1,20 +1,19 @@
 #!/bin/bash
 
-# import-fcc-blacklist v2.0 Copyright (C) 2015-2016, Ward Mundy & Associates LLC. Licensed under GPL2.
+# import-fcc-blacklist, adapted for freeSWITCH by Bill Dengler <codeofdusk@gmail.com>.
+#Based on import-fcc-blacklist (for Asterisk) v2.0 Copyright (C) 2015-2016, Ward Mundy & Associates LLC. Licensed under GPL2.
 #    Special thanks to Adam Goldberg for the awk one-liner! http://nerd.bz/1PVUfhr
-#    Special thanks to Dick Ollett for his database query solution: http://nerd.bz/1PVUfhr
-#    This program imports the current FCC Telemarketing RoboCall Blacklist into Asterisk
-#    It first ERASES all previous FCC blacklist entries added into Asterisk
+#    This program imports the current FCC Telemarketing RoboCall Blacklist into freeSWITCH
 
 clear
-echo "This program imports the current FCC Telemarketing RoboCall Blacklist into Asterisk."
-echo "When the script is run, it first ERASES ALL existing FCC Blacklist numbers in Asterisk!"
+echo "This program imports the current FCC Telemarketing RoboCall Blacklist into freeSWITCH."
+echo "When the script is run, it overwrites ALL existing FCC Blacklist numbers!"
 echo " "
 echo "BY USING THIS SCRIPT, YOU AGREE TO ASSUME ALL RESPONSIBILITY"
 echo "FOR USE OF THE PROGRAM INCLUDED IN THIS INSTALLATION. NO WARRANTIES"
 echo "EXPRESS OR IMPLIED INCLUDING MERCHANTABILITY AND FITNESS FOR PARTICULAR"
 echo "USE ARE PROVIDED. YOU ASSUME ALL RISKS KNOWN AND UNKNOWN AND AGREE TO"
-echo "HOLD WARD MUNDY, WARD MUNDY & ASSOCIATES LLC, NERD VITTLES, AND THE PBX"
+echo "HOLD BILL DENGLER, WARD MUNDY, WARD MUNDY & ASSOCIATES LLC, NERD VITTLES, AND THE PBX"
 echo "IN A FLASH DEVELOPMENT TEAM HARMLESS FROM ANY AND ALL LOSS OR DAMAGE"
 echo "WHICH RESULTS FROM YOUR USE OF THIS SOFTWARE. IF ANY OF THESE TERMS"
 echo "AND CONDITIONS ARE RULED TO BE UNENFORCEABLE, YOU AGREE TO ACCEPT ONE"
@@ -22,22 +21,45 @@ echo "DOLLAR IN U.S. CURRENCY AS COMPENSATORY AND PUNITIVE LIQUIDATED DAMAGES"
 echo "FOR ANY AND ALL CLAIMS YOU AND ANY USERS OF THIS SOFTWARE MIGHT HAVE."
 echo " "
 
-if [ ! -f "Telemarketing_RoboCall_Weekly_Data.last.csv" ]; then
+if [ ! -f "config" ]; then
  echo "If you do not agree with these terms and conditions of use, press Ctrl-C now."
  read -p "Otherwise, press Enter to proceed at your own risk..."
  echo " "
 fi
-
+cd $(dirname "$0")
+# Check for config
+if [ ! -f config ]; then
+echo "Detecting freeSWITCH settings..."
+if [ -d /usr/local/freeswitch/conf ]; then
+echo "Standard install found, blacklist will be saved to /usr/local/freeswitch/conf/blacklists/FCC.list."
+BLACKLISTPATH=/usr/local/freeswitch/conf/blacklists/FCC.list
+fi
+if [ -d /etc/freeswitch ]; then
+echo "Debian-style install found, blacklist will be saved to /etc/freeswitch/blacklists/FCC.list."
+BLACKLISTPATH=/etc/freeswitch/blacklists/FCC.list
+fi
+echo "Please make sure either a standard (/usr/local/freeswitch/conf) or Debian-style (/etc/freeswitch) configuration directory was found above, if not you will need to define BLACKLISTPATH manually."
+if [ -d /var/www/fusionpbx ]; then
+echo "Fusionpbx install found, blacklist will be owned by user www-data"
+FSUSER=www-data
+else
+echo "Fusionpbx install not found, assuming freeSWITCH runs under user freeswitch. Blacklist will be owned by user freeswitch."
+FSUSER=freeswitch
+fi
+echo "BLACKLISTPATH=$BLACKLISTPATH" > config
+echo "FSUSER=$FSUSER" >> config
+echo "If auto-detection got something wrong please edit the file $(pwd)/config NOW!"
+read -p "Otherwise press enter to continue..." continue
+fi
+echo "Reading settings..."
+source config
 echo "Processing FCC blacklist..."
-cd /root/fcc
-mv Telemarketing_RoboCall_Weekly_Data.csv Telemarketing_RoboCall_Weekly_Data.last.csv
 wget --no-check-certificate https://opendata.fcc.gov/api/views/vakf-fz8e/rows.csv?accessType=DOWNLOAD -O Telemarketing_RoboCall_Weekly_Data.csv
-echo "Extracting RoboCall numbers from FCC .csv data..."
-cat Telemarketing_RoboCall_Weekly_Data.csv | awk -F"," '{print $8}' | sort -u | grep "[0-9][0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]" | sed "s|-||g" > blacklist
-echo "Importing blacklist into Asterisk..."
-asterisk -rx 'database query "delete from astdb WHERE KEY LIKE \"/blacklist%\" AND value = \"FCC\" "'
-asterisk -rx "database put blacklist blocked FCC"
-while read a; do
- asterisk -rx "database put blacklist ${a} FCC"
-done <blacklist
-echo "Done"
+echo "Extracting RoboCall numbers from FCC .csv data and writing blacklist..."
+cat Telemarketing_RoboCall_Weekly_Data.csv | awk -F"," '{print $8}' | sort -u | grep "[0-9][0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]" | sed "s|-||g" > "$BLACKLISTPATH"
+echo "Changing user and group ownership to $FSUSER"
+chown $FSUSER:$FSUSER $BLACKLISTPATH
+echo "reloading mod_blacklist..."
+fs_cli -x "load mod_blacklist"
+fs_cli -x "blacklist reload"
+echo "Done."
