@@ -24,32 +24,50 @@ echo " "
 if [ ! -f "config" ]; then
  echo "If you do not agree with these terms and conditions of use, press Ctrl-C now."
  read -p "Otherwise, press Enter to proceed at your own risk..."
- echo " "
+ echo
 fi
 cd $(dirname "$0")
 # Check for config
 if [ ! -f config ]; then
 echo "Detecting freeSWITCH settings..."
 if [ -d /usr/local/freeswitch/conf ]; then
-echo "Standard install found, blacklist will be saved to /usr/local/freeswitch/conf/blacklists/FCC.list."
+echo "Standard install found; blacklist will be saved to /usr/local/freeswitch/conf/blacklists/FCC.list."
 BLACKLISTPATH=/usr/local/freeswitch/conf/blacklists/FCC.list
 fi
 if [ -d /etc/freeswitch ]; then
-echo "Debian-style install found, blacklist will be saved to /etc/freeswitch/blacklists/FCC.list."
+echo "Debian-style install found; blacklist will be saved to /etc/freeswitch/blacklists/FCC.list."
 BLACKLISTPATH=/etc/freeswitch/blacklists/FCC.list
 fi
-echo "Please make sure either a standard (/usr/local/freeswitch/conf) or Debian-style (/etc/freeswitch) configuration directory was found above, if not you will need to define BLACKLISTPATH manually."
+echo "Please make sure either a standard (/usr/local/freeswitch/conf) or Debian-style (/etc/freeswitch) configuration directory was found above; if not you will need to define BLACKLISTPATH manually."
 if [ -d /var/www/fusionpbx ]; then
-echo "Fusionpbx install found, blacklist will be owned by user www-data"
+echo "Fusionpbx install found; blacklist will be owned by user www-data"
 FSUSER=www-data
 else
-echo "Fusionpbx install not found, assuming freeSWITCH runs under user freeswitch. Blacklist will be owned by user freeswitch."
+echo "Fusionpbx install not found; assuming freeSWITCH runs under user freeswitch. Blacklist will be owned by user freeswitch."
 FSUSER=freeswitch
 fi
 echo "BLACKLISTPATH=$BLACKLISTPATH" > config
 echo "FSUSER=$FSUSER" >> config
+echo "Your script configuration is as follows:"
+cat config
 echo "If auto-detection got something wrong please edit the file $(pwd)/config NOW!"
-read -p "Otherwise press enter to continue..." continue
+read -p "Please make any changes in another terminal if necessary, then press enter to continue..." continue
+echo
+echo "Reading settings..."
+source config
+FSROOT="$(dirname $(dirname $BLACKLISTPATH))"
+echo "Generating $(pwd)/FCC.txt..."
+# Generate $BLACKLISTXML
+BLACKLISTXML="<list name=\"FCC\" filename=\"$BLACKLISTPATH\"/>"
+echo "In order to enable the FCC blacklist, you must add the following snippet somewhere between the <lists> and </lists> tags in $FSROOT/autoload_configs/blacklist.conf.xml:" > FCC.txt
+echo "$BLACKLISTXML" >> FCC.txt
+fi
+if [ -f "FCC.txt" ]; then
+echo "Your FCC blacklist configuration is NOT complete!"
+cat FCC.txt
+echo "For your convenience, the above information has been saved to $(pwd)/FCC.txt. Please update your FreeSWITCH configuration and delete $(pwd)/FCC.txt when you're done."
+echo "Once $(pwd)/fcc.txt is deleted, this script will be non-interactive. You may want to create a Cron or Systemd job to keep your system's blacklist up to date."
+read -p "Press enter to continue..." continue
 fi
 echo "Reading settings..."
 source config
