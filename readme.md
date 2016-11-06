@@ -18,7 +18,7 @@ Clone this script's `git` repository with the following commands:
     git clone https://github.com/codeofdusk/freeswitch-fcc-blacklist
 
 ### Generate Configuration
-When the script is ran for the first time, it will attempt to detect your system's configuration and walk you through the modification of some configuration files. Run the script with the following commands:
+When the script is run for the first time, it will attempt to detect your system's configuration and walk you through the modification of some configuration files. Run the script with the following commands:
 
     cd /usr/src/freeswitch-fcc-blacklist
     chmod +x import-fcc-blacklist
