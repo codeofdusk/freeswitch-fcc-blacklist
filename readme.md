@@ -11,20 +11,20 @@ YOu will first need to install mod_blacklist on your system. If you've installed
 
     <load module="mod_blacklist"/>
 
-## Obtaining the Script
+### Obtaining the Script
 Clone this script's `git` repository with the following commands:
 
     cd /usr/src
     git clone https://github.com/codeofdusk/freeswitch-fcc-blacklist
 
-## Generate Configuration
+### Generate Configuration
 When the script is ran for the first time, it will attempt to detect your system's configuration and walk you through the modification of some configuration files. Run the script with the following commands:
 
     cd /usr/src/freeswitch-fcc-blacklist
     chmod +x import-fcc-blacklist
     ./import-fcc-blacklist
 
-## Add Dialplan Logic
+### Add Dialplan Logic
 Add an extension to your FreeSWITCH dialplan to handle blacklisted numbers. It should be added before your standard call flow. If you are using Fusion PBX, add an inbound route with your DID as the destination, your alternate destination for blacklisted callers as the action and an order less than your standard inbound route. Click save and reopen your inbound route. Add a new line, with tag condition, data `^true$`, order 1 and the following type:
 
     ${blacklist(check FCC ${regex(${caller_id_number}|^\+([0-9]+)$|%1)})}
@@ -33,7 +33,7 @@ If you configure freeSWITCH by hand, create a new extension in your dialplan bef
 
     <condition field="${blacklist(check FCC ${regex(${caller_id_number}|^\+([0-9]+)$|%1)})}" expression="^true$" >
 
-## Optional: Automate Blacklist Updates
+### Optional: Automate Blacklist Updates
 You may wish to create a `Cron` or `Systemd` job to automate blacklist updates. To add a `cron` job to update weekly, run the following command:
 
-    echo "$(($RANDOM%60)) $(($RANDOM%24)) * * $(($RANDOM%2 +6 )) root /usr/src/freeswitch-fcc-blacklist/import-fcc-blacklist > /dev/null" >> /etc/ crontab 
+    echo "$(($RANDOM%60)) $(($RANDOM%24)) * * $(($RANDOM%2 +6 )) root /usr/src/freeswitch-fcc-blacklist/import-fcc-blacklist > /dev/null" >> /etc/crontab
