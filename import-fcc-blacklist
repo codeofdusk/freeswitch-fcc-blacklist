@@ -1,9 +1,20 @@
-#!/bin/bash
+#!/bin/sh
+# bash not installed
+#---#!/bin/bash
 
 # import-fcc-blacklist, adapted for freeSWITCH by Bill Dengler <codeofdusk@gmail.com>.
 #Based on import-fcc-blacklist (for Asterisk) v2.0 Copyright (C) 2015-2016, Ward Mundy & Associates LLC. Licensed under GPL2.
 #    Special thanks to Adam Goldberg for the awk one-liner! http://nerd.bz/1PVUfhr
 #    This program imports the current FCC Telemarketing RoboCall Blacklist into freeSWITCH
+
+# capture comand line & full path
+CMD_LINE=$0
+CMD_PATH=$(dirname $0)
+if [ "$CMD_PATH" = "." ]; then
+#    echo "run from within the directory"
+    CMD_PATH=`pwd`
+fi
+#echo "config file will be $CMD_PATH/config"
 
 clear
 echo "This program imports the current FCC Telemarketing RoboCall Blacklist into freeSWITCH."
@@ -21,56 +32,106 @@ echo "DOLLAR IN U.S. CURRENCY AS COMPENSATORY AND PUNITIVE LIQUIDATED DAMAGES"
 echo "FOR ANY AND ALL CLAIMS YOU AND ANY USERS OF THIS SOFTWARE MIGHT HAVE."
 echo " "
 
+##### Add path for standard (no env) cron
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+##### ---
+
 if [ ! -f "config" ]; then
  echo "If you do not agree with these terms and conditions of use, press Ctrl-C now."
  read -p "Otherwise, press Enter to proceed at your own risk..."
  echo
 fi
-cd $(dirname "$0")
+##### $(dirname $0) fails if run as ./import-fcc-blacklist : added pwd at top of file
+cd $CMD_PATH
+#cd $(dirname $0)
+##### ---
 # Check for config
 if [ ! -f config ]; then
-echo "Detecting freeSWITCH settings..."
-if [ -d /usr/local/freeswitch/conf ]; then
-echo "Standard install found; blacklist will be saved to /usr/local/freeswitch/conf/blacklists/FCC.list."
-BLACKLISTPATH=/usr/local/freeswitch/conf/blacklists/FCC.list
+    echo "Detecting freeSWITCH settings..."
+    if [ -d /usr/local/freeswitch/conf ]; then
+	echo "Standard install found; blacklist will be saved to /usr/local/freeswitch/conf/blacklists/FCC.list."
+	BLACKLISTPATH=/usr/local/freeswitch/conf/blacklists/FCC.list
+    fi
+    if [ -d /etc/freeswitch ]; then
+	echo "Debian-style install found; blacklist will be saved to /etc/freeswitch/blacklists/FCC.list."
+	BLACKLISTPATH=/etc/freeswitch/blacklists/FCC.list
+    fi
+    echo "Please make sure either a standard (/usr/local/freeswitch/conf) or Debian-style (/etc/freeswitch) configuration directory was found above; if not you will need to define BLACKLISTPATH manually."
+    ##### add check to make sure dst path exists since it doesn't by default on FreeBSD
+    BLACK_PATH=$(dirname $BLACKLISTPATH)
+    CONF_PATH=$(dirname $BLACK_PATH)
+    if [ ! -d "$BLACK_PATH" ]; then
+	echo "        INFO"
+	echo "        path where blacklist file will reside $BLACK_PATH"
+	if [ -e "$BLACK_PATH" ]; then
+	    DATE=`date "+%Y%m%d"`
+	    mv $BLACK_PATH $BLACK_PATH.$DATE
+	    echo "     !!! someone parked a file here since it exists and isn't a dir, moved to $BLACK_PATH.$DATE"
+	fi
+	mkdir $BLACK_PATH
+	echo "        blackpath created within $CONF_PATH as"
+	ls -l $CONF_PATH|grep blacklists$
+	# www owner may be specific to fusionpbx but blacklist dir will likely always match dialplan dir
+	# in any case, these assume "Standard install" as I don't know where the dialplan dir is on debian-style
+	DP_OWNER=`ls -l $CONF_PATH | grep dialplan | awk '{print $3":"$4}'`
+	echo "        changing owner of $BLACK_PATH to $DP_OWNER"
+	chown $DP_OWNER $BLACK_PATH
+	echo "        blackpath owner within $CONF_PATH is now"
+	ls -l $CONF_PATH|grep blacklists$
+    fi
+    ##### ---
+    if [ -d /var/www/fusionpbx ]; then
+	echo "Fusionpbx install found; blacklist will be owned by user www-data"
+	FSUSER=www-data
+	##### FreeBSD fusionpbx path is /usr/local/www : user is www
+    elif [ -d /usr/local/www/fusionpbx ]; then
+	echo "Fusionpbx install found on FreeBSD; blacklist will be owned by owner of index.php"
+	FSUSER=`ls -l /usr/local/www/fusionpbx/index.php | awk '{print $3}'`
+	##### ---
+    else
+	echo "Fusionpbx install not found; assuming freeSWITCH runs under user freeswitch. Blacklist will be owned by user freeswitch."
+	FSUSER=freeswitch
+    fi
+    echo "BLACKLISTPATH=$BLACKLISTPATH" > config
+    echo "FSUSER=$FSUSER" >> config
+    echo "Your script configuration is as follows:"
+    cat config
+    echo "If auto-detection got something wrong please edit the file $(pwd)/config NOW!"
+    read -p "Please make any changes in another terminal if necessary, then press enter to continue..." continue
+    echo
+    echo "Reading settings..."
+    ##### source is a bash-ism, and implied local path syntax is non-posix
+    #source config
+    while read line ; do
+	eval $line
+    done < $CMD_PATH/config
+    ##### ---
+    FSROOT="$(dirname $(dirname $BLACKLISTPATH))"
+    echo "Generating $(pwd)/FCC.txt..."
+    # Generate $BLACKLISTXML
+    BLACKLISTXML="<list name=\"FCC\" filename=\"$BLACKLISTPATH\"/>"
+    echo "In order to enable the FCC blacklist, you must add the following snippet somewhere between the <lists> and </lists> tags in $FSROOT/autoload_configs/blacklist.conf.xml:" > FCC.txt
+    echo "$BLACKLISTXML" >> FCC.txt
 fi
-if [ -d /etc/freeswitch ]; then
-echo "Debian-style install found; blacklist will be saved to /etc/freeswitch/blacklists/FCC.list."
-BLACKLISTPATH=/etc/freeswitch/blacklists/FCC.list
+##### original doesn't check to see if the entry already exists in target, just if intermediate "instructions file" exists
+EXISTS=`grep $BLACKLISTPATH $FSROOT/autoload_configs/blacklist.conf.xml`
+if [ -z "$EXISTS" ]; then
+    ##### ---
+    if [ -f "FCC.txt" ]; then
+	echo "Your FCC blacklist configuration is NOT complete!"
+	cat FCC.txt
+	echo "For your convenience, the above information has been saved to $(pwd)/FCC.txt. Please update your FreeSWITCH configuration and delete $(pwd)/FCC.txt when you're done."
+	echo "Once $(pwd)/fcc.txt is deleted, this script will be non-interactive. You may want to create a Cron or Systemd job to keep your system's blacklist up to date."
+	read -p "Press enter to continue..." continue
+    fi
 fi
-echo "Please make sure either a standard (/usr/local/freeswitch/conf) or Debian-style (/etc/freeswitch) configuration directory was found above; if not you will need to define BLACKLISTPATH manually."
-if [ -d /var/www/fusionpbx ]; then
-echo "Fusionpbx install found; blacklist will be owned by user www-data"
-FSUSER=www-data
-else
-echo "Fusionpbx install not found; assuming freeSWITCH runs under user freeswitch. Blacklist will be owned by user freeswitch."
-FSUSER=freeswitch
-fi
-echo "BLACKLISTPATH=$BLACKLISTPATH" > config
-echo "FSUSER=$FSUSER" >> config
-echo "Your script configuration is as follows:"
-cat config
-echo "If auto-detection got something wrong please edit the file $(pwd)/config NOW!"
-read -p "Please make any changes in another terminal if necessary, then press enter to continue..." continue
-echo
 echo "Reading settings..."
-source config
-FSROOT="$(dirname $(dirname $BLACKLISTPATH))"
-echo "Generating $(pwd)/FCC.txt..."
-# Generate $BLACKLISTXML
-BLACKLISTXML="<list name=\"FCC\" filename=\"$BLACKLISTPATH\"/>"
-echo "In order to enable the FCC blacklist, you must add the following snippet somewhere between the <lists> and </lists> tags in $FSROOT/autoload_configs/blacklist.conf.xml:" > FCC.txt
-echo "$BLACKLISTXML" >> FCC.txt
-fi
-if [ -f "FCC.txt" ]; then
-echo "Your FCC blacklist configuration is NOT complete!"
-cat FCC.txt
-echo "For your convenience, the above information has been saved to $(pwd)/FCC.txt. Please update your FreeSWITCH configuration and delete $(pwd)/FCC.txt when you're done."
-echo "Once $(pwd)/fcc.txt is deleted, this script will be non-interactive. You may want to create a Cron or Systemd job to keep your system's blacklist up to date."
-read -p "Press enter to continue..." continue
-fi
-echo "Reading settings..."
-source config
+##### source is a bash-ism, and implied local path syntax is non-posix
+#source config
+while read line ; do
+    eval $line
+done < $CMD_PATH/config
+##### ---
 echo "Processing FCC blacklist..."
 wget --no-check-certificate https://opendata.fcc.gov/api/views/vakf-fz8e/rows.csv?accessType=DOWNLOAD -O Telemarketing_RoboCall_Weekly_Data.csv
 echo "Extracting RoboCall numbers from FCC .csv data and writing blacklist..."
