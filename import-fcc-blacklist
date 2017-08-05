@@ -2,7 +2,7 @@
 # bash not installed
 #---#!/bin/bash
 
-# import-fcc-blacklist, adapted for freeSWITCH by Bill Dengler <codeofdusk@gmail.com>.
+# import-fcc-blacklist, adapted for freeSWITCH by Bill Dengler <codeofdusk@gmail.com> and further adapted for FreeBSD by Tony Hain <tony@tndh.net>.
 #Based on import-fcc-blacklist (for Asterisk) v2.0 Copyright (C) 2015-2016, Ward Mundy & Associates LLC. Licensed under GPL2.
 #    Special thanks to Adam Goldberg for the awk one-liner! http://nerd.bz/1PVUfhr
 #    This program imports the current FCC Telemarketing RoboCall Blacklist into freeSWITCH
@@ -20,11 +20,13 @@ clear
 echo "This program imports the current FCC Telemarketing RoboCall Blacklist into freeSWITCH."
 echo "When the script is run, it overwrites ALL existing FCC Blacklist numbers!"
 echo " "
+echo "This program was further modified for FreeBSD by Tony Hain. It is untested, unsupported, and may be unstable!"
+echo " "
 echo "BY USING THIS SCRIPT, YOU AGREE TO ASSUME ALL RESPONSIBILITY"
 echo "FOR USE OF THE PROGRAM INCLUDED IN THIS INSTALLATION. NO WARRANTIES"
 echo "EXPRESS OR IMPLIED INCLUDING MERCHANTABILITY AND FITNESS FOR PARTICULAR"
 echo "USE ARE PROVIDED. YOU ASSUME ALL RISKS KNOWN AND UNKNOWN AND AGREE TO"
-echo "HOLD BILL DENGLER, WARD MUNDY, WARD MUNDY & ASSOCIATES LLC, NERD VITTLES, AND THE PBX"
+echo "HOLD BILL DENGLER, TONY HAIN, WARD MUNDY, WARD MUNDY & ASSOCIATES LLC, NERD VITTLES, AND THE PBX"
 echo "IN A FLASH DEVELOPMENT TEAM HARMLESS FROM ANY AND ALL LOSS OR DAMAGE"
 echo "WHICH RESULTS FROM YOUR USE OF THIS SOFTWARE. IF ANY OF THESE TERMS"
 echo "AND CONDITIONS ARE RULED TO BE UNENFORCEABLE, YOU AGREE TO ACCEPT ONE"
@@ -110,7 +112,7 @@ if [ ! -f config ]; then
     echo "Generating $(pwd)/FCC.txt..."
     # Generate $BLACKLISTXML
     BLACKLISTXML="<list name=\"FCC\" filename=\"$BLACKLISTPATH\"/>"
-    echo "In order to enable the FCC blacklist, you must add the following snippet somewhere between the <lists> and </lists> tags in $FSROOT/autoload_configs/blacklist.conf.xml:" > FCC.txt
+    echo "To enable the FCC blacklist, you must add the following snippet somewhere between the <lists> and </lists> tags in $FSROOT/autoload_configs/blacklist.conf.xml:" > FCC.txt
     echo "$BLACKLISTXML" >> FCC.txt
 fi
 ##### original doesn't check to see if the entry already exists in target, just if intermediate "instructions file" exists
