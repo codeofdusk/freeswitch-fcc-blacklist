@@ -53,13 +53,15 @@ cat config
 echo "If auto-detection got something wrong please edit the file $(pwd)/config NOW!"
 read -p "Please make any changes in another terminal if necessary, then press enter to continue..." continue
 echo
+echo "Creating $(dirname $BLACKLISTPATH)..."
+mkdir -p "$(dirname $BLACKLISTPATH)"
 echo "Reading settings..."
 source config
 FSROOT="$(dirname $(dirname $BLACKLISTPATH))"
 echo "Generating $(pwd)/FCC.txt..."
 # Generate $BLACKLISTXML
 BLACKLISTXML="<list name=\"FCC\" filename=\"$BLACKLISTPATH\"/>"
-echo "In order to enable the FCC blacklist, you must add the following snippet somewhere between the <lists> and </lists> tags in $FSROOT/autoload_configs/blacklist.conf.xml:" > FCC.txt
+echo "To enable the FCC blacklist, you must add the following snippet somewhere between the <lists> and </lists> tags in $FSROOT/autoload_configs/blacklist.conf.xml:" > FCC.txt
 echo "$BLACKLISTXML" >> FCC.txt
 fi
 if [ -f "FCC.txt" ]; then
