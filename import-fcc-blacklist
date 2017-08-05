@@ -40,7 +40,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 if [ ! -f "config" ]; then
  echo "If you do not agree with these terms and conditions of use, press Ctrl-C now."
- read -p "Otherwise, press Enter to proceed at your own risk..."
+ read -p "Otherwise, press Enter to proceed at your own risk..." continue
  echo
 fi
 ##### $(dirname $0) fails if run as ./import-fcc-blacklist : added pwd at top of file
