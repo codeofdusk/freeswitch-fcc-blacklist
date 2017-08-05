@@ -11,11 +11,22 @@ You will first need to install mod_blacklist on your system. If you've installed
 
     <load module="mod_blacklist"/>
 
-### Obtaining the Script
+### Obtain the Script
 Clone this script's `git` repository with the following commands:
 
     cd /usr/src
     git clone https://github.com/codeofdusk/freeswitch-fcc-blacklist
+
+### Choose a branch
+This script was originally designed for FreeSWITCH on Gnu/Linux. However, Tony Hain has sent me a version of the script for FreeBSD. If you are running FreeSWITCH on FreeBSD or another system that does not have Bash, you may wish to try his version. To switch to his version, run:
+
+    cd /usr/src/freeswitch-fcc-blacklist
+    git checkout freebsd
+
+To switch back to my Gnu/Linux version, run:
+
+    cd /usr/src/freeswitch-fcc-blacklist
+    git checkout master
 
 ### Generate Configuration
 When the script is run for the first time, it will attempt to detect your system's configuration and walk you through the modification of some configuration files. Run the script with the following commands:
@@ -25,7 +36,7 @@ When the script is run for the first time, it will attempt to detect your system
     ./import-fcc-blacklist
 
 ### Add Dialplan Logic
-Add an extension to your FreeSWITCH dialplan to handle blacklisted numbers. It should be added before your standard call flow. If you are using Fusion PBX, add an inbound route with your DID as the destination, your alternative destination for blacklisted callers as the action and an order lower than your standard inbound route. Click save and reopen your inbound route. Add a new line, with tag condition, data `^true$`, order 1 and the following type:
+Add an extension to your FreeSWITCH dialplan to handle blacklisted numbers. It should be added before your standard call flow. If you are using Fusion PBX, add an inbound route with your DID as the destination, your alternative destination for blacklisted callers as the action and an order before your standard inbound route. Click save and reopen your inbound route. Add a new line, with tag condition, data `^true$`, order 1 and the following type:
 
     ${blacklist(check FCC ${regex(${caller_id_number}|^\+([0-9]+)$|%1)})}
 
